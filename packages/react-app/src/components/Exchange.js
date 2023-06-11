@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Contract } from "@ethersproject/contracts";
 import { abis } from "@my-app/contracts";
 import {
@@ -16,8 +16,6 @@ import {
   getCounterpartTokens,
   findPoolByTokens,
   isOperationPending,
-  getFailureMessage,
-  getSuccessMessage,
 } from "../utils";
 import { ROUTER_ADDRESS } from "../config";
 import AmountIn from "./AmountIn";
@@ -26,13 +24,10 @@ import Balance from "./Balance";
 import styles from "../styles";
 
 const Exchange = ({ pools }) => {
-  console.log("pools");
-  console.log(pools);
   const { account } = useEthers();
   const [fromValue, setFromValue] = useState("0");
   const [fromToken, setFromToken] = useState(pools[0].token0Address); // initialFromToken
   const [toToken, setToToken] = useState("");
-  const [resetState, setResetState] = useState(false);
 
   const fromValueBigNumber = parseUnits(fromValue || "0"); // converse the string to bigNumber
   const availableTokens = getAvailableTokens(pools);
@@ -75,11 +70,10 @@ const Exchange = ({ pools }) => {
     hasEnoughBalance &&
     toToken;
 
-  const successMessage = getSuccessMessage(swapApproveState, swapExecuteState);
-  const failureMessage = getFailureMessage(swapApproveState, swapExecuteState);
-
   const onApproveRequested = () => {
-    swapApproveSend(ROUTER_ADDRESS, ethers.constants.MaxUint256);
+    swapApproveSend(ROUTER_ADDRESS, ethers.constants.MaxUint256).then((_) => {
+      alert("Approve successful!");
+    });
   };
 
   // https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
@@ -91,6 +85,7 @@ const Exchange = ({ pools }) => {
       account,
       Math.floor(Date.now() / 1000) + 60 * 20
     ).then((_) => {
+      alert("Swap successful!");
       setFromValue("0");
     });
   };
@@ -106,21 +101,12 @@ const Exchange = ({ pools }) => {
 
   const onFromTokenChange = (value) => {
     setFromToken(value);
+    setToToken("");
   };
 
   const onToTokenChange = (value) => {
     setToToken(value);
   };
-
-  useEffect(() => {
-    if (failureMessage || successMessage) {
-      setTimeout(() => {
-        setResetState(true);
-        setFromValue("0");
-        setToToken("");
-      }, 5000);
-    }
-  }, [failureMessage, successMessage]);
 
   return (
     <div className="flex flex-col w-full items-center">
@@ -142,9 +128,8 @@ const Exchange = ({ pools }) => {
           toToken={toToken}
           amountIn={fromValueBigNumber}
           pairContract={pairAddress}
-          currencyValue={toToken}
-          onSelect={onToTokenChange}
-          currencies={counterpartTokens}
+          onToTokenChange={onToTokenChange}
+          counterpartTokens={counterpartTokens}
         />
         <Balance tokenBalance={toTokenBalance} />
       </div>
@@ -175,14 +160,6 @@ const Exchange = ({ pools }) => {
             ? "Swap"
             : "Insufficient balance"}
         </button>
-      )}
-
-      {failureMessage && !resetState ? (
-        <p className={styles.message}>{failureMessage}</p>
-      ) : successMessage ? (
-        <p className={styles.message}>{successMessage}</p>
-      ) : (
-        ""
       )}
     </div>
   );
